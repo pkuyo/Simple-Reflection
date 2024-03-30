@@ -30,3 +30,8 @@
 *.exe
 *.out
 *.app
+/Debug
+/.vs/Reflection
+/Reflection/x64/Debug
+/Reflection/Debug
+/Reflection/a.txt
