@@ -1,5 +1,7 @@
 #pragma once
 
+#include "complie_time_string.h"
+
 #define GET_NTH_ARG(                                                                        \
     _1,  _2,  _3,  _4,  _5,  _6,  _7,  _8,  _9,  _10, _11, _12, _13, _14, _15, _16,         \
     _17, _18, _19, _20, _21, _22, _23, _24, _25, _26, _27, _28, _29, _30, _31, _32,         \
@@ -37,6 +39,12 @@
 	struct Field;\
 	template<typename name>\
 	struct FieldByName;\
+	template<typename T>\
+	requires is_reflection_struct_v<T>\
+	structName& operator=(const T& b)\
+	{\
+		return reflection_copy(*this, b);\
+	}\
 	DELAY_CONCAT(FOR_EACH_, GET_ARG_COUNT(__VA_ARGS__)) (DEFINE,_FIELD_DELAY,structName,0,__VA_ARGS__) \
 };
 
@@ -46,8 +54,8 @@
 	struct Field<index> \
 	{\
 		using Type = type;\
-		template<typename OutType = type> static OutType GetValue(const structName & instance) { return instance.##name; }\
-		template<typename InType = type> static void SetValue(structName & instance,InType newValue) { instance.##name = newValue; }\
+		template<typename OutType = type> static const OutType& GetValue(const structName & instance) { return instance.##name; }\
+		template<typename InType = type> static void SetValue(structName & instance,const InType & newValue) { instance.##name = newValue; }\
 		static const constexpr cts_wrapper<DELAY_CONCAT(#name,_cts)> Name {};\
 		static const constexpr size_t Index = index;\
 	};\
@@ -56,7 +64,7 @@
 	{\
 		using Type = type;\
 		template<typename OutType = type> static OutType GetValue(const structName & instance) { return instance.##name; }\
-		template<typename InType = type> static void SetValue(structName & instance,InType newValue) { instance.##name = newValue; }\
+		template<typename InType = type> static void SetValue(structName & instance,const InType & newValue) { instance.##name = newValue; }\
 		static const constexpr cts_wrapper<DELAY_CONCAT(#name,_cts)> Name {};\
 		static const constexpr size_t Index = index;\
 	};\

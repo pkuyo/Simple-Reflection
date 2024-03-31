@@ -4,7 +4,7 @@
 #include <format>
 #include <fstream>
 
-#include "complie_time_string.h"
+
 #include "reflection_define.h"
 #include "reflection_typeTraits.h"
 #include "reflection_libary.h"
@@ -29,58 +29,34 @@ STRUCT(Test4,
 
 
 
-//---------------------------------
-//struct
-template<int depth = 0>
-struct reflection_dump_json
-{
-	template<typename T>
-	static void invoke(auto name, T&& value, std::ostream& stream)
-	{
-		if constexpr (is_reflection_struct_v<T>)
-		{
-			stream << std::format("{}\"{}\":\n{}{{\n", Blank, CTS_VALUE(name), Blank);
-			for_each<reflection_dump_json<depth + 1>>(std::forward<T>(value), stream);
-			stream << Blank << "},\n";
-		}
-		else
-			stream << std::format("{}\"{}\": {},\n", Blank, CTS_VALUE(name), value);
-
-	}
-private:
-	static inline const std::string Blank = std::string(depth, '\t');
-};
-template<typename T>
-requires is_reflection_struct_v<T>
-void DumpUseStruct(const T & obj)
-{
-	std::cout << "{\n";
-	for_each<reflection_dump_json<1>>(obj,std::cout);
-	std::cout << "}\n";
-}
-
-//---------------------------------
-//lambda
 template<typename T>
 	requires is_reflection_struct_v<T>
-void DumpUseLambda(const T& obj,int depth = 0)
+void DumpToJson(const T& obj,int depth = 0)
 {
-	auto lambda = [depth]<typename ValueType>(auto name, ValueType && value, std::ostream& stream)
+	auto lambda = [depth]<typename ValueType>(auto name, const ValueType && value, std::ostream& stream)
 	{
 		const std::string Blank = std::string(depth+1, '\t');
 		if constexpr (is_reflection_struct_v<ValueType>)
 		{
 			stream << std::format("{}\"{}\":\n{}\n", Blank, CTS_VALUE(name), Blank);
-			DumpUseLambda(value, depth + 1);
+			DumpToJson(value, depth + 1);
 		}
-		else
+		else if constexpr (T::template FieldByName<decltype(name)>::Index != T::FieldLength - 1)
 			stream << std::format("{}\"{}\": {},\n", Blank, CTS_VALUE(name), value);
+		else
+			stream << std::format("{}\"{}\": {}\n", Blank, CTS_VALUE(name), value);
 	};
 	const std::string Blank = std::string(depth, '\t');
 	std::cout << Blank << "{\n";
-	for_each(obj, lambda,std::cout);
-	std::cout << Blank << "},\n";
+	for_each(std::forward<const T>(obj), lambda,std::cout);
+	std::cout << Blank << "}\n";
 
+}
+
+template<typename T>
+void print_value(const char* name,const T& value)
+{
+	std::cout << std::format("Name:{}, Value:{}\n", name, value);
 }
 
 
@@ -90,21 +66,50 @@ int main()
 		.inst = {1,0.5f},
 		.flt = 2.5f
 	};
-	Test4 b{ 0,0,0 ,0};
-	reflection_copy(b, a);
+	Test4 b;
+
+	auto ca = reflection_clone(a);
+
+	float value = 0.f;
+
+	b = a; 
+
+	//reflection_equal(ca,a);
+	std::cout << std::format("ca == a Value: {}\n", ca == a);
+	std::cout << std::format("b == a Value: {}\n", b == a);
+
+	//reflection_partial_equal(b,a)
+	std::cout << std::format("b partial equals a Value: {}\n", reflection_partial_equal(b,a));
 
 	std::cout << std::format("Name:{}, FieldLength:{}\n", CTS_VALUE(Test4::Name), Test4::FieldLength);
 
-	Test4::Field<2>::SetValue(b,1.5f);
-	std::cout << std::format("Name:{}, Value:{}\n", CTS_VALUE(Test4::Field<2>::Name), Test4::Field<2>::GetValue(b));
+	//Test4::Field<2>::SetValue(b,1.5f);
+	reflection_set_value<2>(b, 1.5f);
 
-	Test4::FieldByName<CTS_STR("flt")>::SetValue(b, 33.f);
-	std::cout << std::format("Name:{}, Value:{}\n", CTS_VALUE(Test4::FieldByName<CTS_STR("flt")>::Name), Test4::FieldByName<CTS_STR("flt")>::GetValue(b));
+	//Test4::Field<2>::GetValue(b);
+	value = reflection_get_value<2>(b);
+	print_value(CTS_VALUE(Test4::Field<2>::Name), value);
 
-	std::cout << typeid(typename Test4::FieldByName<CTS_STR("inst")>::Type).name() << "\n\n";
+	//Test4::FieldByName<CTS_STR("flt")>::SetValue(b, 33.f);
+	reflection_set_value<CTS_STR("flt")>(b, 33.f);
+
+	//Test4::FieldByName<CTS_STR("flt")>::GetValue(b);
+	value = reflection_get_value<CTS_STR("flt")>(b);
+
+	
+	print_value(CTS_VALUE(Test4::FieldByName<CTS_STR("flt")>::Name), value);
+
+	//Test4::FieldByName<CTS_STR("inst")>::Type;
+	std::cout << typeid(reflection_field_t<Test4,CTS_STR("inst")>).name() << "\n\n";
 
 	//Dump to json format
-	DumpUseStruct(a);
-	DumpUseLambda(b);
+	DumpToJson(b);
+
+	reflection_try_set_value(b, "flt", 233.f);
+
+	value = reflection_try_get_value<float>(b, "flt");
+	
+	std::cout << std::format("Find flt, Value: {}", value);
+
 	return 0;
 }

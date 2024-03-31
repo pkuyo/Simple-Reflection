@@ -14,6 +14,8 @@ struct is_reflection_struct
 
 };
 
+
+
 template<typename T>
 static constexpr bool is_reflection_struct_v = is_reflection_struct<T>::value;
 
@@ -40,6 +42,7 @@ template<typename T, int Index>
 struct reflection_element
 {
 	using type = typename T::template Field<Index>::Type;
+
 };
 template<typename T, int Index>
 using reflection_element_t = typename reflection_element<T, Index>::type;
@@ -55,16 +58,49 @@ template<typename T, typename N>
 using reflection_field_t = typename reflection_field<T, N>::type;
 
 
-
-template<typename T, int Index>
+template<typename T>
 	requires is_reflection_struct_v<T>
-struct struct_name
+struct reflection_struct_name
 {
-	static constexpr const char* name = T::template Field<Index>::Name;
+	static constexpr auto name = T::Name;
 };
-template<typename T, int Index>
-static constexpr const char* struct_name_v = struct_name<T, Index>::name;
+template<typename T>
+static constexpr auto reflection_struct_name_v = reflection_struct_name<T>::name;
 
 
+namespace detail
+{
+	template<typename Fn>
+	struct function_traits;
+
+	template <typename FunctionT> 
+		struct function_traits
+		: function_traits<decltype(&(std::remove_reference_t<FunctionT>::operator()))>
+	{
+	};
+
+	template<typename Ret, typename ...Args>
+	struct function_traits<Ret(Args...)>
+	{
+		using ret = Ret;
+		using args = std::tuple<Args...>;
+	};
+
+	template<typename Ret, typename ...Args>
+	struct function_traits<Ret(*)(Args...)> : function_traits<Ret(Args...)>
+	{
+	};
+
+	template<typename ClassTypeT, typename Ret, typename ...Args>
+	struct function_traits<Ret(ClassTypeT::*)(Args...)> : function_traits<Ret(Args...)>
+	{
+	};
+
+
+	template<typename ClassTypeT, typename Ret, typename ...Args>
+	struct function_traits<Ret(ClassTypeT::*)(Args...) const> : function_traits<Ret(Args...)>
+	{
+	};
+}
 
 
